@@ -2,90 +2,113 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import hashlib
 import os
+import base64
 
-class FileHashCalculator:
+class CalculadoraDeHash:
     def __init__(self, master):
         self.master = master
         master.title("Calculadora de Hash de Arquivos")
-        master.geometry("600x400")
+        master.geometry("700x500")
 
-        self.file_path = tk.StringVar()
-        self.hash_algorithm = tk.StringVar(value="md5")
-        self.result = tk.StringVar()
+        self.caminho_arquivo = tk.StringVar()
+        self.algoritmo_hash = tk.StringVar(value="md5")
+        self.resultado = tk.StringVar()
+        self.modo_base64 = tk.BooleanVar()
+        self.comparar_hash = tk.StringVar()
 
-        self.create_widgets()
+        self.criar_widgets()
 
-    def create_widgets(self):
-        # Frame principal
-        main_frame = ttk.Frame(self.master, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+    def criar_widgets(self):
+        frame_principal = ttk.Frame(self.master, padding="10")
+        frame_principal.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         self.master.columnconfigure(0, weight=1)
         self.master.rowconfigure(0, weight=1)
 
-        # Entrada do caminho do arquivo
-        ttk.Label(main_frame, text="Arquivo ou Pasta:").grid(column=0, row=0, sticky=tk.W)
-        ttk.Entry(main_frame, width=50, textvariable=self.file_path).grid(column=1, row=0, sticky=(tk.W, tk.E))
-        ttk.Button(main_frame, text="Procurar", command=self.browse_file).grid(column=2, row=0, sticky=tk.W)
+        ttk.Label(frame_principal, text="Arquivo ou Pasta:").grid(column=0, row=0, sticky=tk.W)
+        ttk.Entry(frame_principal, width=50, textvariable=self.caminho_arquivo).grid(column=1, row=0, sticky=(tk.W, tk.E))
+        ttk.Button(frame_principal, text="Procurar", command=self.procurar_arquivo).grid(column=2, row=0, sticky=tk.W)
 
-        # Seleção do algoritmo de hash
-        ttk.Label(main_frame, text="Algoritmo de Hash:").grid(column=0, row=1, sticky=tk.W)
-        algorithms = ['md5', 'sha1', 'sha256', 'sha512']
-        ttk.Combobox(main_frame, textvariable=self.hash_algorithm, values=algorithms).grid(column=1, row=1, sticky=(tk.W, tk.E))
+        ttk.Label(frame_principal, text="Algoritmo de Hash:").grid(column=0, row=1, sticky=tk.W)
+        algoritmos = ['md5', 'sha1', 'sha256', 'sha512', 'blake2b', 'sha3_256']
+        ttk.Combobox(frame_principal, textvariable=self.algoritmo_hash, values=algoritmos).grid(column=1, row=1, sticky=(tk.W, tk.E))
 
-        # Botão para calcular o hash
-        ttk.Button(main_frame, text="Calcular Hash", command=self.calculate_hash).grid(column=1, row=2, sticky=tk.E)
+        ttk.Checkbutton(frame_principal, text="Saída em Base64", variable=self.modo_base64).grid(column=1, row=2, sticky=tk.W)
 
-        # Resultado
-        ttk.Label(main_frame, text="Resultado:").grid(column=0, row=3, sticky=tk.W)
-        ttk.Entry(main_frame, width=70, textvariable=self.result, state='readonly').grid(column=1, row=3, columnspan=2, sticky=(tk.W, tk.E))
+        ttk.Button(frame_principal, text="Calcular Hash", command=self.calcular_hash).grid(column=1, row=3, sticky=tk.E)
 
-        # Configurar o redimensionamento da grade
-        for child in main_frame.winfo_children():
+        ttk.Label(frame_principal, text="Resultado:").grid(column=0, row=4, sticky=tk.W)
+        ttk.Entry(frame_principal, width=70, textvariable=self.resultado, state='readonly').grid(column=1, row=4, columnspan=2, sticky=(tk.W, tk.E))
+
+        ttk.Label(frame_principal, text="Comparar Hash:").grid(column=0, row=5, sticky=tk.W)
+        ttk.Entry(frame_principal, width=70, textvariable=self.comparar_hash).grid(column=1, row=5, columnspan=2, sticky=(tk.W, tk.E))
+        ttk.Button(frame_principal, text="Comparar", command=self.comparar_hashes).grid(column=2, row=5, sticky=tk.E)
+
+        for child in frame_principal.winfo_children():
             child.grid_configure(padx=5, pady=5)
-        main_frame.columnconfigure(1, weight=1)
+        frame_principal.columnconfigure(1, weight=1)
 
-    def browse_file(self):
-        path = filedialog.askdirectory() or filedialog.askopenfilename()
-        if path:
-            self.file_path.set(path)
+    def procurar_arquivo(self):
+        caminho = filedialog.askdirectory() or filedialog.askopenfilename()
+        if caminho:
+            self.caminho_arquivo.set(caminho)
 
-    def calculate_hash(self):
-        path = self.file_path.get()
-        algorithm = self.hash_algorithm.get()
+    def calcular_hash(self):
+        caminho = self.caminho_arquivo.get()
+        algoritmo = self.algoritmo_hash.get()
 
-        if not path:
+        if not caminho:
             messagebox.showerror("Erro", "Por favor, selecione um arquivo ou pasta.")
             return
 
         try:
-            if os.path.isfile(path):
-                hash_value = self.hash_file(path, algorithm)
-            elif os.path.isdir(path):
-                hash_value = self.hash_directory(path, algorithm)
+            if os.path.isfile(caminho):
+                hash_valor = self.hash_arquivo(caminho, algoritmo)
+            elif os.path.isdir(caminho):
+                hash_valor = self.hash_diretorio(caminho, algoritmo)
             else:
                 messagebox.showerror("Erro", "Caminho inválido.")
                 return
 
-            self.result.set(hash_value)
+            if self.modo_base64.get():
+                hash_valor = base64.b64encode(bytes.fromhex(hash_valor)).decode()
+
+            self.resultado.set(hash_valor)
         except Exception as e:
             messagebox.showerror("Erro", f"Ocorreu um erro ao calcular o hash: {str(e)}")
 
-    def hash_file(self, file_path, algorithm):
-        hash_obj = hashlib.new(algorithm)
-        with open(file_path, "rb") as f:
+    def hash_arquivo(self, caminho_arquivo, algoritmo):
+        hash_obj = hashlib.new(algoritmo)
+        with open(caminho_arquivo, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_obj.update(chunk)
         return hash_obj.hexdigest()
 
-    def hash_directory(self, dir_path, algorithm):
-        hash_obj = hashlib.new(algorithm)
-        for root, dirs, files in os.walk(dir_path):
-            for file in sorted(files):
-                file_path = os.path.join(root, file)
-                hash_obj.update(self.hash_file(file_path, algorithm).encode())
+    def hash_diretorio(self, caminho_dir, algoritmo):
+        hash_obj = hashlib.new(algoritmo)
+        for raiz, dirs, arquivos in os.walk(caminho_dir):
+            for arquivo in sorted(arquivos):
+                caminho_arquivo = os.path.join(raiz, arquivo)
+                hash_obj.update(self.hash_arquivo(caminho_arquivo, algoritmo).encode())
         return hash_obj.hexdigest()
+
+    def comparar_hashes(self):
+        hash_calculado = self.resultado.get()
+        hash_comparar = self.comparar_hash.get()
+
+        if not hash_calculado:
+            messagebox.showerror("Erro", "Por favor, calcule um hash primeiro.")
+            return
+
+        if not hash_comparar:
+            messagebox.showerror("Erro", "Por favor, insira um hash para comparar.")
+            return
+
+        if hash_calculado.lower() == hash_comparar.lower():
+            messagebox.showinfo("Resultado", "Os hashes são idênticos!")
+        else:
+            messagebox.showwarning("Resultado", "Os hashes são diferentes.")
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = FileHashCalculator(root)
+    app = CalculadoraDeHash(root)
     root.mainloop()
